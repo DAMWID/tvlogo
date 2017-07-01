@@ -84,25 +84,3 @@ for f in snapfiles:
         img_a[:CROP_H, :, :] = img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :]
         img_a[CROP_H:, :, :] = img[crop_y:crop_y+CROP_H, WIDTH-crop_x-CROP_W:WIDTH-crop_x, :]
         Image.fromarray(img_a).save(logo_file.replace('.jpg', '-%d.jpg' % i), quality=100)
-
-ch_index = {}
-with open(join(basedir, 'channels.txt')) as f:
-    contents = [ l.strip() for l in f.readlines() if not l.startswith('#') ]
-    channels = [ int(l.split(':', 1)[0]) for l in contents ]
-    for i, ch in enumerate(channels):
-        ch_index[ch] = i
-
-logofiles = [ relpath(f, basedir) for f in glob.glob(join(logodir, '*', 'logo-*.jpg')) ]
-random.shuffle(logofiles)
-testfiles = logofiles[:len(logofiles)/4]
-trainfiles = logofiles[len(logofiles)/4:]
-
-with open(join(basedir, 'test.txt'), 'w') as test:
-    for f in testfiles:
-        ch = int(basename(dirname(f)))
-        test.write('%s:%d\n' % (f, ch_index[ch]))
-
-with open(join(basedir, 'train.txt'), 'w') as train:
-    for f in trainfiles:
-        ch = int(basename(dirname(f)))
-        train.write('%s:%d\n' % (f, ch_index[ch]))

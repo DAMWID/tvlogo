@@ -29,14 +29,17 @@ trainfiles = logofiles[len(logofiles)/4:]
 with open(join(basedir, 'all.txt'), 'w') as test:
     for f in logofiles:
         ch = int(basename(dirname(f)))
-        test.write('%s:%d\n' % (f, ch_index[ch]))
+        if ch in ch_index:
+            test.write('%s:%d\n' % (f, ch_index[ch]))
 
 with open(join(basedir, 'test.txt'), 'w') as test:
     for f in testfiles:
         ch = int(basename(dirname(f)))
-        test.write('%s:%d\n' % (f, ch_index[ch]))
+        if ch in ch_index:
+            test.write('%s:%d\n' % (f, ch_index[ch]))
 
 with open(join(basedir, 'train.txt'), 'w') as train:
     for f in trainfiles:
         ch = int(basename(dirname(f)))
-        train.write('%s:%d\n' % (f, ch_index[ch]))
+        if ch in ch_index:
+            train.write('%s:%d\n' % (f, ch_index[ch]))
