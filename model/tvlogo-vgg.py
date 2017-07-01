@@ -8,7 +8,7 @@ import time
 import tensorflow as tf
 import numpy as np
 from datetime import datetime
-from os.path import isdir, isfile, join
+from os.path import isdir, isfile, join, basename, dirname
 from PIL import Image
 import vgg
 
