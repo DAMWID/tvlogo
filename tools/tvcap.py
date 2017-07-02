@@ -67,7 +67,6 @@ else:
 
 channel_file = join(basedir, 'channels.txt')
 snap_dir = join(basedir, 'snap')
-logo_dir = join(basedir, 'logo')
 
 crop = np.array(((0, 0), (LOGO_CROP_W, LOGO_CROP_H)))
 base0 = np.array((LOGO_CROP_X, LOGO_CROP_Y))
@@ -117,7 +116,6 @@ class BGCTV(object):
             ch_dir = join(snap_dir, ch)
             try:
                 os.makedirs(ch_dir)
-                os.makedirs(join(logo_dir, ch))
             except OSError:
                 pass
             #self.ch_snaps[ch] = len([ f for f in listdir(ch_dir) if f.startswith("snap-") and f.endswith(".jpg") ])
