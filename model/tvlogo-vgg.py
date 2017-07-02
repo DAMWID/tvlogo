@@ -19,6 +19,7 @@ MAX_LABELS = 1000
 VGG16_LAYOUT = ((224, 224, 3), ((64, 64), (128, 128), (256, 256, 256), (512, 512, 512), (512, 512, 512)), (4096, 4096), MAX_LABELS),
 CUSTOM_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64), (128, 128)), (1024,), MAX_LABELS)
 SIMPLE_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64)), (1024,), 0)
+LINEAR_LAYOUT = ((224, 224, 3), (), (), 0)
 
 label_manifest = 'channels.txt'
 train_manifest = 'train.txt'
@@ -28,7 +29,7 @@ basedir = '.'
 restart = False
 epoch = DEFAULT_EPOCH
 batch_size = DEFAULT_BATCH_SIZE
-
+layout = list(CUSTOM_LAYOUT)
 
 class Samples(object):
     """Class to maintain sample images and labels"""
@@ -100,7 +101,7 @@ class Usage(Exception):
 
 try:
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hb:d:e:l:rt:v:", ['help', 'batch=', 'dir=', 'epoch=', 'label=', 'restart', 'train=', 'verify='])
+        opts, args = getopt.getopt(sys.argv[1:], "hb:d:e:l:n:rt:v:", ['help', 'batch=', 'dir=', 'epoch=', 'label=', 'network=', 'restart', 'train=', 'verify='])
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
@@ -119,6 +120,15 @@ try:
             epoch = int(arg)
         elif opt in ('-l', '--label'):
             label_map = arg
+        elif opt in ('-n', '--network'):
+            if arg == 'vgg16':
+                layout = list(VGG16_LAYOUT)
+            elif arg == 'custom':
+                layout = list(CUSTOM_LAYOUT)
+            elif arg == 'simple':
+                layout = list(SIMPLE_LAYOUT)
+            elif arg == 'linear':
+                layout = list(LINEAR_LAYOUT)
         elif opt in ('-r', '--restart'):
             restart = True
         elif opt in ('-t', '--train'):
@@ -138,20 +148,19 @@ print("[ epoch=%d, batch_size=%d ]" % (epoch, batch_size))
 
 os.chdir(basedir)
 
-layout = list(CUSTOM_LAYOUT)
-
 label = Labels(label_manifest, layout[-1])
 train = Samples(train_manifest, label.count)
 test = Samples(test_manifest, label.count)
 
 layout[0] = (train.height, train.width, train.channels)
+layout[-1] = label.count
 
-attr = ''
-for l in layout[1]:
-    attr += '%d_' % l[0]
-attr += '%d' % layout[2][0]
+attr_i = 'x'.join([ str(l) for l in layout[0] ])
+attr_c = '_'.join([ str(l[0]) for l in layout[1] ])
+attr_f = '_'.join([ str(l) for l in layout[2] ])
+attr = '-'.join([ s for s in (attr_i, attr_c, attr_f, str(layout[-1])) if len(s) > 0 ])
 
-model_param_path = join(basedir, 'pretrained', 'tvlogo-vgg-%dx%dx%d-%s-%d.npy' % (layout[0] + (attr, label.count)))
+model_param_path = join(basedir, 'pretrained', 'tvlogo-vgg-%s.npy' % attr)
 try:
     os.makedirs(dirname(model_param_path))
 except OSError:
@@ -185,7 +194,7 @@ if action == 'train':
                 dt, t_start = t - t_start, t
                 r_sec = int(remaining * dt / processed)
                 r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
-                print("%s: epoch %d/%d, batch %d/%d, accuracy: %5.1f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), e, epoch, b, batches, accuracy*100, loss, r_hour, r_min, r_sec, processed/dt))
+                print("%s: epoch %d/%d, batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), e+1, epoch, b, batches, accuracy*100, loss, r_hour, r_min, r_sec, processed/dt))
                 processed = 0
             b += 1
     model.save(model_param_path)
@@ -217,7 +226,7 @@ while True:
     dt, t_start = t - t_start, t
     r_sec = int(remaining * dt / num)
     r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
-    print("%s: batch %d/%d, accuracy: %5.1f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), b, batches, accuracy*100, loss, r_hour, r_min, r_sec, num/dt))
+    print("%s: batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), b, batches, accuracy*100, loss, r_hour, r_min, r_sec, num/dt))
     b += 1
 
 print("Overall test accuracy %5.1f%%" % ((test.count-n_failed)*100.0/test.count))
