@@ -61,6 +61,7 @@ class VGG(object):
         return tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
 
     def conv_layer(self, bottom, in_channels, out_channels, name):
+        print("CONV layer %s: %d x %d" % (name, in_channels, out_channels))
         with tf.variable_scope(name):
             filt, conv_biases = self.get_conv_var(3, in_channels, out_channels, name)
 
@@ -71,6 +72,7 @@ class VGG(object):
             return relu
 
     def fc_layer(self, bottom, in_size, out_size, name):
+        print("FC layer %s: %d x %d" % (name, in_size, out_size))
         with tf.variable_scope(name):
             weights, biases = self.get_fc_var(in_size, out_size, name)
 
@@ -134,6 +136,8 @@ class VGG(object):
     def train(self, x, y):
         self.sess.run(self.train_step, feed_dict={self.x: x, self.labels: y, self.dropout: self.train_dropout})
 
-    def test(self, x):
-        prob = self.sess.run(self.prob, feed_dict={self.x: x, self.dropout: 1.0})
-        return prob
+    def test(self, x, y):
+        return self.sess.run([self.prob, self.cross_entropy], feed_dict={self.x: x, self.labels: y, self.dropout: 1.0})
+
+    def infer(self, x):
+        return self.sess.run(self.prob, feed_dict={self.x: x, self.dropout: 1.0})

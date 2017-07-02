@@ -187,8 +187,7 @@ if action == 'train':
             remaining -= num
             processed += num
             if b % 10 == 0:
-                prob = model.test(batch[0])
-                loss = np.sum(np.square(prob - batch[1]))/num
+                prob, loss = model.test(batch[0], batch[1])
                 accuracy = np.mean(np.equal(np.argmax(prob, 1), np.argmax(batch[1], 1)).astype('float32'))
                 t = time.time()
                 dt, t_start = t - t_start, t
@@ -210,8 +209,7 @@ while True:
     num = batch[0].shape[0]
     if num == 0:
         break
-    prob = model.test(batch[0])
-    loss = np.sum(np.square(prob - batch[1]))/num
+    prob, loss = model.test(batch[0], batch[1])
     p = np.not_equal(np.argmax(prob, 1), np.argmax(batch[1], 1))
     accuracy = 1.0 - np.mean(p.astype('float32'))
     f_idx = np.flatnonzero(p)

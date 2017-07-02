@@ -43,5 +43,5 @@ class tvlogo(object):
     def classify(self, image, top=5):
         img = image.resize(self.resize, Image.BICUBIC)
         crop = np.append(np.asarray(img.crop(self.tl_box), dtype=np.uint8), np.asarray(img.crop(self.tr_box), dtype=np.uint8), axis=0)
-        prob = self.model.test(crop.reshape(-1, crop.size))
+        prob = self.model.infer(crop.reshape(-1, crop.size))
         return [ (self.label.db[i][0], prob[0][i]) for i in np.argsort(prob[0])[:-(top+1):-1] ]
