@@ -32,12 +32,12 @@ class tvlogo(object):
     def __init__(self, confdir='.'):
         self.label = Labels(join(confdir, 'channels.txt'), self.layout[-1])
 
-        attr = ''
-        for l in self.layout[1]:
-            attr += '%d_' % l[0]
-        attr += '%d' % self.layout[2][0]
+        attr_i = 'x'.join([ str(l) for l in self.layout[0] ])
+        attr_c = '_'.join([ str(l[0]) for l in self.layout[1] ])
+        attr_f = '_'.join([ str(l) for l in self.layout[2] ])
+        attr = '-'.join([ s for s in (attr_i, attr_c, attr_f, str(self.layout[-1])) if len(s) > 0 ])
 
-        model_param_path = join(confdir, 'pretrained', 'tvlogo-vgg-%dx%dx%d-%s-%d.npy' % (self.layout[0] + (attr, self.label.count)))
+        model_param_path = join(confdir, 'pretrained', 'tvlogo-vgg-%s.npy' % attr)
         self.model = vgg.VGG(self.layout, model_param_path)
 
     def classify(self, image, top=5):
