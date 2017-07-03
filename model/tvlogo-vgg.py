@@ -23,7 +23,7 @@ LINEAR_LAYOUT = ((224, 224, 3), (), (), 0)
 
 label_manifest = 'channels.txt'
 train_manifest = 'train.txt'
-test_manifest = 'test.txt'
+eval_manifest = 'evaluate.txt'
 
 basedir = '.'
 restart = False
@@ -101,7 +101,7 @@ class Usage(Exception):
 
 try:
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hb:d:e:l:n:rt:v:", ['help', 'batch=', 'dir=', 'epoch=', 'label=', 'network=', 'restart', 'train=', 'verify='])
+        opts, args = getopt.getopt(sys.argv[1:], "hb:d:e:l:n:rt:v:", ['help', 'batch=', 'dir=', 'epoch=', 'label=', 'network=', 'restart', 'train=', 'evaluate='])
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
@@ -133,15 +133,15 @@ try:
             restart = True
         elif opt in ('-t', '--train'):
             train_manifest = arg
-        elif opt in ('-v', '--verify'):
-            test_manifest = arg
+        elif opt in ('-v', '--evaluate'):
+            eval_manifest = arg
 
     if not isdir(basedir):
         raise Usage('Directory not found: %s' % basedir)
 except Usage, err:
     if err.msg:
         print >> sys.stderr, err.msg
-    print('Usage: %s OPTION <train|test>' % sys.argv[0])
+    print('Usage: %s OPTION <train|evaluate>' % sys.argv[0])
     sys.exit(2)
 
 print("[ epoch=%d, batch_size=%d ]" % (epoch, batch_size))
@@ -150,7 +150,7 @@ os.chdir(basedir)
 
 label = Labels(label_manifest, layout[-1])
 train = Samples(train_manifest, label.count)
-test = Samples(test_manifest, label.count)
+evaluate = Samples(eval_manifest, label.count)
 
 layout[0] = (train.height, train.width, train.channels)
 layout[-1] = label.count
@@ -187,7 +187,7 @@ if action == 'train':
             remaining -= num
             processed += num
             if b % 10 == 0:
-                prob, loss = model.test(batch[0], batch[1])
+                prob, loss = model.evaluate(batch[0], batch[1])
                 accuracy = np.mean(np.equal(np.argmax(prob, 1), np.argmax(batch[1], 1)).astype('float32'))
                 t = time.time()
                 dt, t_start = t - t_start, t
@@ -201,15 +201,16 @@ if action == 'train':
 failed = open('failed.txt', 'w')
 n_failed = 0
 b = 0
-remaining = test.count
-batches = (train.count + batch_size - 1) / batch_size
+remaining = evaluate.count
+batches = (evaluate.count + batch_size - 1) / batch_size
+processed = 0
 t_start = time.time()
 while True:
-    batch = test.next_batch(batch_size)
+    batch = evaluate.next_batch(batch_size)
     num = batch[0].shape[0]
     if num == 0:
         break
-    prob, loss = model.test(batch[0], batch[1])
+    prob, loss = model.evaluate(batch[0], batch[1])
     p = np.not_equal(np.argmax(prob, 1), np.argmax(batch[1], 1))
     accuracy = 1.0 - np.mean(p.astype('float32'))
     f_idx = np.flatnonzero(p)
@@ -220,11 +221,14 @@ while True:
         failed.write("] \n")
     n_failed += len(f_idx)
     remaining -= num
-    t = time.time()
-    dt, t_start = t - t_start, t
-    r_sec = int(remaining * dt / num)
-    r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
-    print("%s: batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), b, batches, accuracy*100, loss, r_hour, r_min, r_sec, num/dt))
+    processed += num
+    if b % 10 == 0:
+        t = time.time()
+        dt, t_start = t - t_start, t
+        r_sec = int(remaining * dt / processed)
+        r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
+        print("%s: batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), b, batches, accuracy*100, loss, r_hour, r_min, r_sec, processed/dt))
+        processed = 0
     b += 1
 
-print("Overall test accuracy %5.1f%%" % ((test.count-n_failed)*100.0/test.count))
+print("Overall evaluate accuracy %5.1f%%" % ((evaluate.count-n_failed)*100.0/evaluate.count))

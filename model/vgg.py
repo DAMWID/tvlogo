@@ -136,7 +136,7 @@ class VGG(object):
     def train(self, x, y):
         self.sess.run(self.train_step, feed_dict={self.x: x, self.labels: y, self.dropout: self.train_dropout})
 
-    def test(self, x, y):
+    def evaluate(self, x, y):
         return self.sess.run([self.prob, self.cross_entropy], feed_dict={self.x: x, self.labels: y, self.dropout: 1.0})
 
     def infer(self, x):
