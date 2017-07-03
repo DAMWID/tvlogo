@@ -16,7 +16,7 @@ CROP_H = 80
 CROP_X = 20
 CROP_Y = 4
 JITTER = 0
-AUGMENT = 1
+AUGMENT = 0
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -28,17 +28,17 @@ try:
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
-    if len(args) != 1 or not isdir(args[0]):
+    if len(args) != 2 or not isdir(args[0]):
         raise Usage(None)
-    basedir = args[0]
+    snapdir, logodir = args
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             raise Usage(None)
         elif opt in ('-a', '--augment'):
             AUGMENT = int(arg)
-            if AUGMENT < 1:
-                AUGMENT = 1
+            if AUGMENT < 0:
+                AUGMENT = 0
         elif opt in ('-i', '--imagenet'):
             CROP_X, CROP_Y, CROP_W, CROP_H = (0, 0, 224, 112)
         elif opt in ('-j', '--jitter'):
@@ -46,41 +46,54 @@ try:
             if JITTER < 0:
                 JITTER = 0
 
-    if JITTER > CROP_X:
-        CROP_X = JITTER
-    if JITTER > CROP_Y:
-        CROP_Y = JITTER
+    j = JITTER * 2 + 1
+    c = (j**2) / 2
 
-    if AUGMENT > (2*JITTER+1)**2:
-        raise Usage('augment must less than or equals to (2*jitter+1)^2')
+    if AUGMENT >= j**2:
+        raise Usage('augment must less than (2*JITTER+1)^2')
 except Usage, err:
     if err.msg:
         print >> sys.stderr, err.msg
-    print('Usage: %s OPTION [dir]' % sys.argv[0])
+    print('Usage: %s OPTION SNAPDIR LOGODIR' % sys.argv[0])
     sys.exit(2)
 
-snapdir = join(basedir, 'snap')
-logodir = join(basedir, 'logo')
 
-snapfiles = glob.glob(join(snapdir, '*', 'snap-*.jpg'))
+# Create a bigger array with a margin of JITTER pixel on each side
+height, width = HEIGHT + JITTER * 2, WIDTH + JITTER * 2
+CROP_X, CROP_Y  = CROP_X + JITTER, CROP_Y + JITTER
 
-img_a = np.zeros((CROP_H*2, CROP_W, 3), dtype=np.uint8)
+img = np.zeros((height, width, 3), dtype=np.uint8)
 
-for f in snapfiles:
-    im = Image.open(f)
-    logo_file = f.replace('snap', 'logo')
+for f in glob.glob(join(snapdir, '*', '*.jpg')):
+    logo_file = join(logodir, relpath(f, snapdir))
     try:
         os.makedirs(dirname(logo_file))
     except OSError:
         pass
 
-    img = np.asarray(im.resize((WIDTH, HEIGHT), Image.BICUBIC), dtype=np.uint8)
+    # copy the image to the center of the bigger array
+    img[JITTER:JITTER+HEIGHT, JITTER:JITTER+WIDTH, :] = np.asarray(Image.open(f).resize((WIDTH, HEIGHT), Image.BICUBIC), dtype=np.uint8)
 
-    j_size = JITTER * 2 + 1
-    offsets = random.sample(range(j_size**2), AUGMENT)
-    for i, off in enumerate(offsets):
-        crop_x = CROP_X - JITTER + off % j_size
-        crop_y = CROP_Y - JITTER + off / j_size
-        img_a[:CROP_H, :, :] = img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :]
-        img_a[CROP_H:, :, :] = img[crop_y:crop_y+CROP_H, WIDTH-crop_x-CROP_W:WIDTH-crop_x, :]
-        Image.fromarray(img_a).save(logo_file.replace('.jpg', '-%d.jpg' % i), quality=100)
+    # random select samples in a j*j square
+    # including the original one if not already created
+    offsets = range(c) + range(c+1, j**2)
+    random.shuffle(offsets)
+    if not isfile(logo_file):
+        offsets = [c, ] + offsets
+        n = AUGMENT + 1
+    else:
+        n = AUGMENT
+
+    for off in offsets:
+        dx, dy = off % j - JITTER, off / j - JITTER
+        suffix = '' if dx == 0 and dy == 0 else ('+%d+%d' % (dx, dy)).replace('+-', '-')
+        filename = logo_file.replace('.jpg', '%s.jpg' % suffix)
+        if isfile(filename):
+            continue
+
+        crop_x, crop_y = CROP_X + dx, CROP_Y + dy
+        crop = np.append(img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], axis=0)
+        Image.fromarray(crop).save(filename, quality=100)
+        n -= 1
+        if n == 0:
+            break
