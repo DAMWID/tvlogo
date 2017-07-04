@@ -224,7 +224,7 @@ try:
             if use_keyframe and not frame.key_frame:
                 continue
 
-            im = frame.reformat(width=WIDTH, height=HEIGHT).to_image()
+            im = frame.to_image().resize((WIDTH, HEIGHT), Image.BICUBIC)
 
             if matches < 5:
                 result = logo.classify(im)
