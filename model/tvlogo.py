@@ -7,7 +7,6 @@ import sys
 import time
 import numpy as np
 from os.path import isdir, isfile, join
-from PIL import Image
 import vgg
 
 class Labels(object):
@@ -40,9 +39,7 @@ class tvlogo(object):
         model_param_path = join(confdir, 'pretrained', 'tvlogo-vgg-%s.npy' % attr)
         self.model = vgg.VGG(self.layout, model_param_path)
 
-    def classify(self, image, top=5):
-        if image.size != (640, 360):
-            image = image.resize(self.resize, Image.BICUBIC)
-        crop = np.append(np.asarray(image.crop(self.tl_box), dtype=np.uint8), np.asarray(image.crop(self.tr_box), dtype=np.uint8), axis=0)
-        prob = self.model.infer(crop.reshape(-1, crop.size))
+    def classify(self, logo, top=5):
+        assert logo.shape == self.layout[0]
+        prob = self.model.infer(logo.reshape(-1, logo.size))
         return [ (self.label.db[i][0], prob[0][i]) for i in np.argsort(prob[0])[:-(top+1):-1] ]

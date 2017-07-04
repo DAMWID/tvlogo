@@ -225,9 +225,10 @@ try:
                 continue
 
             im = frame.to_image().resize((WIDTH, HEIGHT), Image.BICUBIC)
+            img_a = np.append(np.asarray(im.crop(region0), dtype=np.uint8), np.asarray(im.crop(region1), dtype=np.uint8), axis=0)
 
             if matches < 5:
-                result = logo.classify(im)
+                result = logo.classify(img_a)
                 print(result)
                 if result[0][0] == ch and result[0][1] > 0.5:
                     matches += 1
@@ -238,7 +239,6 @@ try:
 
             frames += 1
     
-            img_a = np.append(np.asarray(im.crop(region0), dtype=np.uint8), np.asarray(im.crop(region1), dtype=np.uint8), axis=0)
 
             diff = np.subtract(img_a.astype('float32'), prev_img_a.astype('float32'))
             diff[LOGO_CROP_H:, :, :] /= 2
