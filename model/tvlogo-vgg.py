@@ -22,8 +22,6 @@ SIMPLE_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64)), (1024,), 0)
 LINEAR_LAYOUT = ((224, 224, 3), (), (), 0)
 
 label_manifest = 'channels.txt'
-train_manifest = 'train.txt'
-eval_manifest = 'evaluate.txt'
 
 basedir = '.'
 restart = False
@@ -101,13 +99,13 @@ class Usage(Exception):
 
 try:
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hb:d:e:l:n:rt:v:", ['help', 'batch=', 'dir=', 'epoch=', 'label=', 'network=', 'restart', 'train=', 'evaluate='])
+        opts, args = getopt.getopt(sys.argv[1:], "hb:d:e:l:n:r", ['help', 'batch=', 'dir=', 'epoch=', 'label=', 'network=', 'restart'])
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
-    if len(args) != 1:
+    if len(args) != 2 or args[0] not in ('train', 'evaluate') or not isfile(args[1]):
         raise Usage(None)
-    action = args[0]
+    action, manifest = args
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -119,7 +117,7 @@ try:
         elif opt in ('-e', '--epoch'):
             epoch = int(arg)
         elif opt in ('-l', '--label'):
-            label_map = arg
+            label_manifest = arg
         elif opt in ('-n', '--network'):
             if arg == 'vgg16':
                 layout = list(VGG16_LAYOUT)
@@ -131,29 +129,22 @@ try:
                 layout = list(LINEAR_LAYOUT)
         elif opt in ('-r', '--restart'):
             restart = True
-        elif opt in ('-t', '--train'):
-            train_manifest = arg
-        elif opt in ('-v', '--evaluate'):
-            eval_manifest = arg
 
     if not isdir(basedir):
         raise Usage('Directory not found: %s' % basedir)
 except Usage, err:
     if err.msg:
         print >> sys.stderr, err.msg
-    print('Usage: %s OPTION <train|evaluate>' % sys.argv[0])
+    print('Usage: %s OPTION <train|evaluate> manifest_file' % sys.argv[0])
     sys.exit(2)
-
-print("[ epoch=%d, batch_size=%d ]" % (epoch, batch_size))
 
 os.chdir(basedir)
 
-label = Labels(label_manifest, layout[-1])
-train = Samples(train_manifest, label.count)
-evaluate = Samples(eval_manifest, label.count)
+labels = Labels(label_manifest, layout[-1])
+samples = Samples(manifest, labels.count)
 
-layout[0] = (train.height, train.width, train.channels)
-layout[-1] = label.count
+layout[0] = (samples.height, samples.width, samples.channels)
+layout[-1] = labels.count
 
 attr_i = 'x'.join([ str(l) for l in layout[0] ])
 attr_c = '_'.join([ str(l[0]) for l in layout[1] ])
@@ -161,74 +152,57 @@ attr_f = '_'.join([ str(l) for l in layout[2] ])
 attr = '-'.join([ s for s in (attr_i, attr_c, attr_f, str(layout[-1])) if len(s) > 0 ])
 
 model_param_path = join(basedir, 'pretrained', 'tvlogo-vgg-%s.npy' % attr)
-try:
-    os.makedirs(dirname(model_param_path))
-except OSError:
-    pass
-
 if restart or not isfile(model_param_path):
+    try:
+        os.makedirs(dirname(model_param_path))
+    except OSError:
+        pass
     model = vgg.VGG(layout)
 else:
     model = vgg.VGG(layout, model_param_path)
 
-if action == 'train':
-    remaining = train.count * epoch
-    batches = (train.count + batch_size - 1) / batch_size
-    for e in range(epoch):
-        b = 0
-        processed = 0
-        t_start = time.time()
-        while True:
-            batch = train.next_batch(batch_size)
-            num = batch[0].shape[0]
-            if num == 0:
-                break
+if action == 'evaluate':
+    epoch = 1
+    failed = open('failed.txt', 'w')
+    n_failed = 0
+
+remaining = samples.count * epoch
+batches = (samples.count + batch_size - 1) / batch_size
+for e in range(epoch):
+    b = 0
+    processed = 0
+    t_start = time.time()
+    while True:
+        batch = samples.next_batch(batch_size)
+        num = batch[0].shape[0]
+        if num == 0:
+            break
+        if action == 'train':
             model.train(batch[0], batch[1])
-            remaining -= num
-            processed += num
-            if b % 10 == 0:
+        else:
+            prob, loss = model.evaluate(batch[0], batch[1])
+            f_idx = np.flatnonzero(np.not_equal(np.argmax(prob, 1), np.argmax(batch[1], 1)))
+            for i in f_idx:
+                failed.write("%s: [ " % batch[2][i])
+                for j in np.argsort(prob[i])[:-6:-1]:
+                    failed.write("%s (%0.4f), " % (labels.db[j][0], prob[i][j]))
+                failed.write("] \n")
+            n_failed += len(f_idx)
+        remaining -= num
+        processed += num
+        if b % 10 == 0:
+            if action == 'train':
                 prob, loss = model.evaluate(batch[0], batch[1])
-                accuracy = np.mean(np.equal(np.argmax(prob, 1), np.argmax(batch[1], 1)).astype('float32'))
-                t = time.time()
-                dt, t_start = t - t_start, t
-                r_sec = int(remaining * dt / processed)
-                r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
-                print("%s: epoch %d/%d, batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), e+1, epoch, b, batches, accuracy*100, loss, r_hour, r_min, r_sec, processed/dt))
-                processed = 0
-            b += 1
+            accuracy = np.mean(np.equal(np.argmax(prob, 1), np.argmax(batch[1], 1)).astype('float32'))
+            t = time.time()
+            dt, t_start = t - t_start, t
+            r_sec = int(remaining * dt / processed)
+            r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
+            print("%s: epoch %d/%d, batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), e+1, epoch, b, batches, accuracy*100, loss, r_hour, r_min, r_sec, processed/dt))
+            processed = 0
+        b += 1
+
+if action == 'train':
     model.save(model_param_path)
-
-failed = open('failed.txt', 'w')
-n_failed = 0
-b = 0
-remaining = evaluate.count
-batches = (evaluate.count + batch_size - 1) / batch_size
-processed = 0
-t_start = time.time()
-while True:
-    batch = evaluate.next_batch(batch_size)
-    num = batch[0].shape[0]
-    if num == 0:
-        break
-    prob, loss = model.evaluate(batch[0], batch[1])
-    p = np.not_equal(np.argmax(prob, 1), np.argmax(batch[1], 1))
-    accuracy = 1.0 - np.mean(p.astype('float32'))
-    f_idx = np.flatnonzero(p)
-    for i in f_idx:
-        failed.write("%s: [ " % batch[2][i])
-        for j in np.argsort(prob[i])[:-6:-1]:
-            failed.write("%s (%0.4f), " % (label.db[j][0], prob[i][j]))
-        failed.write("] \n")
-    n_failed += len(f_idx)
-    remaining -= num
-    processed += num
-    if b % 10 == 0:
-        t = time.time()
-        dt, t_start = t - t_start, t
-        r_sec = int(remaining * dt / processed)
-        r_hour, r_min, r_sec = r_sec / 3600, (r_sec % 3600) / 60, r_sec % 60
-        print("%s: batch %d/%d, accuracy: %6.2f%%, loss: %6.4f, time remaining: %02d:%02d:%02d (%3.1f exapmles/sec)" % (time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), b, batches, accuracy*100, loss, r_hour, r_min, r_sec, processed/dt))
-        processed = 0
-    b += 1
-
-print("Overall evaluate accuracy %5.1f%%" % ((evaluate.count-n_failed)*100.0/evaluate.count))
+else:
+    print("Overall evaluate accuracy %5.1f%%" % ((samples.count-n_failed)*100.0/samples.count))
