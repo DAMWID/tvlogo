@@ -40,6 +40,6 @@ class tvlogo(object):
         self.model = vgg.VGG(self.layout, model_param_path)
 
     def classify(self, logo, top=5):
-        assert logo.shape == self.layout[0]
+        #assert logo.shape == self.layout[0]
         prob = self.model.infer(logo.reshape(-1, logo.size))
         return [ (self.label.db[i][0], prob[0][i]) for i in np.argsort(prob[0])[:-(top+1):-1] ]
