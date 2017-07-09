@@ -16,13 +16,13 @@ dirs = [ re.sub('/$', '', d) for d in sys.argv[1:] if isdir(d) ]
 col = 10
 row = (len(dirs) + col - 1)/col
 
-f = glob.glob(join(dirs[0], 'logo-*.jpg'))[0]
+f = glob.glob(join(dirs[0], '*.jpg'))[0]
 width, height = Image.open(f).size
 
 img_a = np.zeros((height * row, width * col, 3), dtype=np.uint8)
 idx = 0
 for d in dirs:
-    files = glob.glob(join(d, 'logo-*.jpg'))
+    files = glob.glob(join(d, '*.jpg'))
     r = idx / col
     c = idx % col
     idx += 1
