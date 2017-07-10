@@ -206,4 +206,4 @@ for e in range(epoch):
 if action == 'train':
     model.save(model_param_path)
 else:
-    print("Overall validate accuracy %5.1f%%" % ((samples.count-n_failed)*100.0/samples.count))
+    print("Overall validate accuracy %6.2f%%" % ((samples.count-n_failed)*100.0/samples.count))

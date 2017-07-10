@@ -59,8 +59,6 @@ with open(labelmap) as f:
     contents = [ l.strip() for l in f.readlines() if not l.startswith('#') ]
     for l in contents:
         i, ch, name = l.split(':', 2)
-        if not ch.isdigit():
-            continue
         ch_index[ch] = int(i)
 
 pattern = '*-[0-9][0-9][0-9].jpg' if orig_only else '*.jpg'
