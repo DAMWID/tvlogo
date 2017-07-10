@@ -14,10 +14,9 @@ import vgg
 
 DEFAULT_BATCH_SIZE = 50
 DEFAULT_EPOCH = 5
-MAX_LABELS = 1000
 
-VGG16_LAYOUT = ((224, 224, 3), ((64, 64), (128, 128), (256, 256, 256), (512, 512, 512), (512, 512, 512)), (4096, 4096), MAX_LABELS)
-CUSTOM_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64), (128, 128)), (1024,), MAX_LABELS)
+VGG16_LAYOUT = ((224, 224, 3), ((64, 64), (128, 128), (256, 256, 256), (512, 512, 512), (512, 512, 512)), (4096, 4096), 0)
+CUSTOM_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64), (128, 128)), (1024,), 0)
 SIMPLE_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64)), (1024,), 0)
 LINEAR_LAYOUT = ((224, 224, 3), (), (), 0)
 
@@ -85,13 +84,15 @@ class Samples(object):
 class Labels(object):
     """Class to maintain label definitions"""
 
-    def __init__(self, labelfile, labels):
+    def __init__(self, labelfile):
         with open(labelfile) as f:
             contents = [ l.strip() for l in f.readlines() if not l.startswith('#') ]
-            self.count = labels if labels > len(contents) else len(contents)
-            self.db = [('_', 'Unknow')] * self.count
-            for i, l in enumerate(contents):
-                self.db[i] = l.split(':', 1)
+            self.count = [ int(l.split(':', 2)[0]) for l in contents if l.split(':', 2)[1] == 'max' ][0]
+            self.db = [('_', 'unknown')] * self.count
+            for l in contents:
+                i, ch, name = l.split(':', 2)
+                if ch.isdigit():
+                    self.db[int(i)] = (ch, name)
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -103,7 +104,7 @@ try:
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
-    if len(args) != 2 or args[0] not in ('train', 'evaluate') or not isfile(args[1]):
+    if len(args) != 2 or args[0] not in ('train', 'validate') or not isfile(args[1]):
         raise Usage(None)
     action, manifest = args
 
@@ -135,12 +136,12 @@ try:
 except Usage, err:
     if err.msg:
         print >> sys.stderr, err.msg
-    print('Usage: %s OPTION <train|evaluate> manifest_file' % sys.argv[0])
+    print('Usage: %s OPTION <train|validate> manifest_file' % sys.argv[0])
     sys.exit(2)
 
 os.chdir(basedir)
 
-labels = Labels(label_manifest, layout[-1])
+labels = Labels(label_manifest)
 samples = Samples(manifest, labels.count)
 
 layout[0] = (samples.height, samples.width, samples.channels)
@@ -161,7 +162,7 @@ if restart or not isfile(model_param_path):
 else:
     model = vgg.VGG(layout, model_param_path)
 
-if action == 'evaluate':
+if action == 'validate':
     epoch = 1
     failed = open('failed.txt', 'w')
     n_failed = 0
@@ -180,7 +181,7 @@ for e in range(epoch):
         if action == 'train':
             model.train(batch[0], batch[1])
         else:
-            prob, loss = model.evaluate(batch[0], batch[1])
+            prob, loss = model.validate(batch[0], batch[1])
             f_idx = np.flatnonzero(np.not_equal(np.argmax(prob, 1), np.argmax(batch[1], 1)))
             for i in f_idx:
                 failed.write("%s: [ " % batch[2][i])
@@ -192,7 +193,7 @@ for e in range(epoch):
         processed += num
         if b % 10 == 0:
             if action == 'train':
-                prob, loss = model.evaluate(batch[0], batch[1])
+                prob, loss = model.validate(batch[0], batch[1])
             accuracy = np.mean(np.equal(np.argmax(prob, 1), np.argmax(batch[1], 1)).astype('float32'))
             t = time.time()
             dt, t_start = t - t_start, t
@@ -205,4 +206,4 @@ for e in range(epoch):
 if action == 'train':
     model.save(model_param_path)
 else:
-    print("Overall evaluate accuracy %5.1f%%" % ((samples.count-n_failed)*100.0/samples.count))
+    print("Overall validate accuracy %5.1f%%" % ((samples.count-n_failed)*100.0/samples.count))
