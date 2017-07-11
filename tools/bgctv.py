@@ -174,8 +174,11 @@ class BGCTV(object):
         self.ir_send('enter')
         self.current_ch = ch_idx
 
-    def next_channel_by_score(self, prio, rand_range=1):
-        valid = sorted([ (i, self.scores[i]) for i, x in enumerate(self.channels) if x[0].isdigit() ], key=lambda d: d[1])
+    def next_channel_by_score(self, prio, score_range=None, rand_range=1):
+        valid = [ (i, self.scores[i]) for i, x in enumerate(self.channels) if x[0].isdigit() and (score_range is None or self.scores[i] >= score_range[0] and (score_range[1] <= 0 or self.scores[i] < score_range[1])) ]
+        valid = sorted(valid, key=lambda d: d[1])
+        if len(valid) == 0:
+            return None, None
         if rand_range > len(valid):
             rand_range = len(valid)
 

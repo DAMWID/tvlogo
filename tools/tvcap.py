@@ -75,7 +75,9 @@ logo = tvlogo.tvlogo(basedir)
 
 try:
     while True:
-        ch_idx, n = tv.next_channel_by_score(tv.PRIO_MIN)
+        ch_idx, n = tv.next_channel_by_score(tv.PRIO_MIN, (0, limit), 5)
+        if ch_idx is None:
+            break
         ch = tv.channels[ch_idx][0]
         if n >= limit:
             break
@@ -86,9 +88,10 @@ try:
 
         tv.batch_start(1, tv.OUTPUT_LOGO_CROP, tv.MODE_KEYFRAME_MIXING)
         matches = 0
+        frames = 0
 
         try:
-            while matches < 3:
+            while matches < 3 and frames < 20:
                 bx, _ = tv.batch_get()
                 if bx is None:
                     break
@@ -96,6 +99,7 @@ try:
                 result = logo.classify(bx)
                 bx = None
                 print(result)
+                frames += 1
                 if result[0][0] == ch:
                     matches += 1
                 else:
@@ -104,6 +108,9 @@ try:
             break
         finally:
             tv.batch_stop()
+
+        if matches < 3:
+            continue
 
         time.sleep(1)
 
