@@ -227,6 +227,7 @@ class BGCTV(object):
 
             self.buf.add(im, False)
             im = None
+        self.buf.add(None)
 
     def capture_logo(self, batch_size, mode, max_stall, max_skip):
         prev_crop = np.array([0], dtype=np.uint8)
@@ -289,6 +290,7 @@ class BGCTV(object):
             if num == batch_size:
                 self.buf.add(batch, False)
                 batch = None
+        self.buf.add(None)
 
     def batch_start(self, batch_size, output, mode=MODE_KEYFRAME_ANY, max_stall=0, max_skip=0):
         assert self.thread is None
@@ -303,7 +305,12 @@ class BGCTV(object):
     def batch_stop(self):
         if (self.thread is not None) and self.thread.isAlive():
             self.stop = True
-            self.thread.join()
+            while self.buf.get(False) is not None:
+                pass
+            try:
+                self.thread.join()
+            except:
+                pass
         self.thread = None
         self.buf = None
 
@@ -317,7 +324,9 @@ class BGCTV(object):
             return (None, None)
 
         bx = self.buf.get()
-        if type(bx) == Image.Image:
+        if bx is None:
+            return (None, None)
+        elif type(bx) == Image.Image:
             n = 1
         else:
             n = bx.shape[0]

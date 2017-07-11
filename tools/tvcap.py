@@ -118,7 +118,7 @@ try:
             sys.stdout.flush()
 
             # skip first frame
-            im, _ = tv.batch_get()
+            tv.batch_get()
 
             while captured < b:
                 im, _ = tv.batch_get()
