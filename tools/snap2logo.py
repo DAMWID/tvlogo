@@ -18,6 +18,9 @@ CROP_Y = 4
 JITTER = 0
 AUGMENT = 0
 FLIP = False
+SCALE = False
+SCALE_DW = 32
+SCALE_DH = 16
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -25,7 +28,7 @@ class Usage(Exception):
 
 try:
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ha:fij:", ['help', 'augment=', 'flip', 'imagenet', 'jitter='])
+        opts, args = getopt.getopt(sys.argv[1:], "ha:fij:s", ['help', 'augment=', 'flip', 'imagenet', 'jitter=', 'scale='])
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
@@ -48,6 +51,8 @@ try:
             JITTER = int(arg)
             if JITTER < 0:
                 JITTER = 0
+        elif opt in ('-s', '--scale'):
+            SCALE = True
 
     j = JITTER * 2 + 1
     c = (j**2) / 2
@@ -60,12 +65,9 @@ except Usage, err:
     print('Usage: %s OPTION SNAPDIR LOGODIR' % sys.argv[0])
     sys.exit(2)
 
-
 # Create a bigger array with a margin of JITTER pixel on each side
-height, width = HEIGHT + JITTER * 2, WIDTH + JITTER * 2
+img = np.zeros((HEIGHT+JITTER*2+SCALE_DH, WIDTH+JITTER*2+SCALE_DW, 3), dtype=np.uint8)
 CROP_X, CROP_Y  = CROP_X + JITTER, CROP_Y + JITTER
-
-img = np.zeros((height, width, 3), dtype=np.uint8)
 
 for f in glob.glob(join(snapdir, '*', '*.jpg')):
     logo_file = join(logodir, relpath(f, snapdir))
@@ -74,8 +76,19 @@ for f in glob.glob(join(snapdir, '*', '*.jpg')):
     except OSError:
         pass
 
+    # rancom select 1/4 images to scale
+    scale = random.choice((True, False, False, False)) if SCALE else False
+    if scale:
+        dw = (random.randint(-SCALE_DW, SCALE_DW) / 4) * 4
+        dh = (random.randint(-SCALE_DH, SCALE_DH) / 4) * 4
+    else:
+        dw, dh = 0, 0
+
+    scale_w, scale_h = WIDTH + dw, HEIGHT + dh
+
+    height, width = scale_h + JITTER * 2, scale_w + JITTER * 2
     # copy the image to the center of the bigger array
-    img[JITTER:JITTER+HEIGHT, JITTER:JITTER+WIDTH, :] = np.asarray(Image.open(f).resize((WIDTH, HEIGHT), Image.BICUBIC), dtype=np.uint8)
+    img[JITTER:JITTER+scale_h, JITTER:JITTER+scale_w, :] = np.asarray(Image.open(f).resize((scale_w, scale_h), Image.BICUBIC), dtype=np.uint8)
 
     # random select samples in a j*j square
     # including the original one if not already created
@@ -95,11 +108,13 @@ for f in glob.glob(join(snapdir, '*', '*.jpg')):
             continue
 
         crop_x, crop_y = CROP_X + dx, CROP_Y + dy
-        crop = np.append(img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], axis=0)
-        Image.fromarray(crop).save(filename, quality=100)
-        if FLIP:
+
+        flip = random.choice((True, False)) if FLIP else False
+        if flip:
             crop = np.append(img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], axis=0)
-            Image.fromarray(crop).save(filename.replace('.jpg', '-flip.jpg'), quality=100)
+        else:
+            crop = np.append(img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], axis=0)
+        Image.fromarray(crop).save(filename, quality=100)
         n -= 1
         if n == 0:
             break
