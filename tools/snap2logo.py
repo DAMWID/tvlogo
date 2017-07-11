@@ -17,6 +17,7 @@ CROP_X = 20
 CROP_Y = 4
 JITTER = 0
 AUGMENT = 0
+FLIP = False
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -24,7 +25,7 @@ class Usage(Exception):
 
 try:
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ha:ij:", ['help', 'augment=', 'imagenet', 'jitter='])
+        opts, args = getopt.getopt(sys.argv[1:], "ha:fij:", ['help', 'augment=', 'flip', 'imagenet', 'jitter='])
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
@@ -39,6 +40,8 @@ try:
             AUGMENT = int(arg)
             if AUGMENT < 0:
                 AUGMENT = 0
+        elif opt in ('-f', '--flip'):
+            FLIP = True
         elif opt in ('-i', '--imagenet'):
             CROP_X, CROP_Y, CROP_W, CROP_H = (0, 0, 224, 112)
         elif opt in ('-j', '--jitter'):
@@ -94,6 +97,9 @@ for f in glob.glob(join(snapdir, '*', '*.jpg')):
         crop_x, crop_y = CROP_X + dx, CROP_Y + dy
         crop = np.append(img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], axis=0)
         Image.fromarray(crop).save(filename, quality=100)
+        if FLIP:
+            crop = np.append(img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], axis=0)
+            Image.fromarray(crop).save(filename.replace('.jpg', '-flip.jpg'), quality=100)
         n -= 1
         if n == 0:
             break
