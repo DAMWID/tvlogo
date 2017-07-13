@@ -19,8 +19,8 @@ JITTER = 0
 AUGMENT = 0
 FLIP = False
 SCALE = False
-SCALE_DW = 32
-SCALE_DH = 16
+SCALE_RATIO = 1/20.0
+QUARTER = False
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -51,6 +51,8 @@ try:
             JITTER = int(arg)
             if JITTER < 0:
                 JITTER = 0
+        elif opt in ('-q', '--quarter'):
+            QUARTER = True
         elif opt in ('-s', '--scale'):
             SCALE = True
 
@@ -63,7 +65,18 @@ except Usage, err:
     if err.msg:
         print >> sys.stderr, err.msg
     print('Usage: %s OPTION SNAPDIR LOGODIR' % sys.argv[0])
+    print('Option:')
+    print('\t-a --augment=n\taugment dataset by num times for each example')
+    print('\t-f --flip\tenable filping image when doing dataset augment')
+    print('\t-i --imagenet\tuse the same image size as imagenet (224x224x3)')
+    print('\t-j --jitter=n\trandom shift in a (2*num+1)*(2*num+1) square')
+    print('\t-q --quarter\tuser quarter size of the image (80*80*3)')
+    print('\t-s --scale\tenable scaling image by a small factor when doing dataset augment')
+    print('\t-h --help\tshow this message')
     sys.exit(2)
+
+SCALE_DW = int(WIDTH * SCALE_RATIO)
+SCALE_DH = int(HEIGHT * SCALE_RATIO)
 
 # Create a bigger array with a margin of JITTER pixel on each side
 img = np.zeros((HEIGHT+JITTER*2+SCALE_DH, WIDTH+JITTER*2+SCALE_DW, 3), dtype=np.uint8)
@@ -79,8 +92,8 @@ for f in glob.glob(join(snapdir, '*', '*.jpg')):
     # rancom select 1/4 images to scale
     scale = random.choice((True, False, False, False)) if SCALE else False
     if scale:
-        dw = (random.randint(-SCALE_DW, SCALE_DW) / 4) * 4
-        dh = (random.randint(-SCALE_DH, SCALE_DH) / 4) * 4
+        dw = random.randint(-SCALE_DW, SCALE_DW)
+        dh = random.randint(-SCALE_DH, SCALE_DH)
     else:
         dw, dh = 0, 0
 
@@ -114,7 +127,12 @@ for f in glob.glob(join(snapdir, '*', '*.jpg')):
             crop = np.append(img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], axis=0)
         else:
             crop = np.append(img[crop_y:crop_y+CROP_H, crop_x:crop_x+CROP_W, :], img[crop_y:crop_y+CROP_H, width-crop_x-CROP_W:width-crop_x, :], axis=0)
-        Image.fromarray(crop).save(filename, quality=100)
+
+        im = Image.fromarray(crop)
+        if QUARTER:
+            im = im.resize((im.widht/2, im.height/2), Image.BICUBIC)
+        im.save(filename, quality=100)
+
         n -= 1
         if n == 0:
             break
