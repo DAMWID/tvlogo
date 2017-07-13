@@ -81,36 +81,49 @@ try:
         ch = tv.channels[ch_idx][0]
         if n >= limit:
             break
-    
+
         b = limit - n
         if b > batch:
             b = batch
 
         tv.batch_start(1, tv.OUTPUT_LOGO_CROP, tv.MODE_KEYFRAME_MIXING)
-        matches = 0
-        frames = 0
+
+        matched = False
+        retries = 0
 
         try:
-            while matches < 3 and frames < 20:
-                bx, _ = tv.batch_get()
-                if bx is None:
-                    break
+            while not matched and retries < 3:
+                if retries > 0:
+                    tv.set_channel(ch_idx)
+                    time.sleep(1)
+                matches = 0
+                frames = 0
+                while matches < 3 and frames < 20:
+                    bx, _ = tv.batch_get()
+                    if bx is None:
+                        raise EOFError
 
-                result = logo.classify(bx)
-                bx = None
-                print(result)
-                frames += 1
-                if result[0][0] == ch:
-                    matches += 1
-                else:
-                    matches = 0
+                    result = logo.classify(bx)
+                    bx = None
+                    print(result)
+                    frames += 1
+                    if result[0][0] == ch:
+                        matches += 1
+                    else:
+                        matches = 0
+                if matches == 3:
+                    matched = True
+                retries += 1
         except:
             break
         finally:
             tv.batch_stop()
 
-        if matches < 3:
-            continue
+        chdir = join(snapdir, ch) if matched else join(snapdir, 'unmatched', ch)
+        try:
+            os.makedirs(chdir)
+        except OSError:
+            pass
 
         time.sleep(1)
 
@@ -132,7 +145,7 @@ try:
                 if im is None:
                     break
                 captured += 1
-                im.save(join(snapdir, ch, 'snap-%s-%03d.jpg' % (timestamp, captured)), quality=100)
+                im.save(join(chdir, 'snap-%s-%03d.jpg' % (timestamp, captured)), quality=100)
                 ratio = captured * 100 / b
                 print('%4d: [%s%s]' % (captured, '=' * ratio, '.' * (100 - ratio)), end='\r')
                 sys.stdout.flush()
