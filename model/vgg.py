@@ -114,7 +114,7 @@ class VGG(object):
 
         return var
 
-    def save(self, param_path):
+    def save(self, param_path, remap=None):
         data_dict = {}
 
         for (name, idx), var in list(self.var_dict.items()):
@@ -122,6 +122,19 @@ class VGG(object):
             if name not in data_dict:
                 data_dict[name] = {}
             data_dict[name][idx] = var_out
+
+        if remap is not None:
+            w = data_dict['y'][0]
+            b = data_dict['y'][1]
+            weight = np.zeros(w.shape, w.dtype)
+            bias = np.zeros(b.shape, b.dtype)
+            assert len(remap) == w.shape[1]
+            for i in range(len(remap)):
+                idx = remap[i]
+                weight[:, i] = w[:, idx]
+                bias[i] = b[idx]
+            data_dict['y'][0] = weight
+            data_dict['y'][1] = bias
 
         np.save(param_path, data_dict)
         print(("Model parameters saved to %s" % param_path))
