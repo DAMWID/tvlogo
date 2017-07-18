@@ -26,7 +26,7 @@ allow_flip = False
 allow_scale = False
 do_quarter = False
 do_blend = False
-do_invalid = False
+allow_invalid = False
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -58,7 +58,7 @@ try:
         elif opt in ('-j', '--jitter'):
             allow_jitter = True
         elif opt in ('-n', '--invalid'):
-            do_invalid = True
+            allow_invalid = True
         elif opt in ('-q', '--quarter'):
             do_quarter = True
         elif opt in ('-s', '--scale'):
@@ -94,13 +94,13 @@ try:
 except OSError:
     pass
 
+channels = [ d for d in os.listdir(snapdir) if isdir(join(snapdir, d)) and (d.isdigit() or d == 'inv') ]
 
 allfiles = glob.glob(join(snapdir, '*', '*.jpg'))
 
 if do_blend:
     tempdir = tempfile.mkdtemp(prefix='blend-')
 
-    channels = [ d for d in os.listdir(snapdir) if isdir(join(snapdir, d)) and (d.isdigit() or d == 'inv') ]
     for ch in channels:
         snapfiles = glob.glob(join(snapdir, ch, '*.jpg'))
         total = len(snapfiles)
@@ -125,6 +125,7 @@ if do_blend:
 
     allfiles += glob.glob(join(tempdir, '*', '*.jpg'))
 
+average_count = len(allfiles) / len(channels)
 
 for f in allfiles:
     ch = basename(dirname(f))
@@ -138,6 +139,7 @@ for f in allfiles:
     try:
         im = Image.open(f)
 
+        do_invalid = random.randint(0, average_count/augment) == 0
         if do_invalid and ch.isdigit():
             invalid = (INV_REGION * im.size).astype('int')
             im.crop(invalid.ravel()).resize(out_size, Image.BICUBIC).save(inv_file, quality=100)
