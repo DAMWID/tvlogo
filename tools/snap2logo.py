@@ -26,6 +26,7 @@ allow_flip = False
 allow_scale = False
 do_quarter = False
 do_blend = False
+do_invalid = False
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -33,7 +34,7 @@ class Usage(Exception):
 
 try:
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ha:bfijqs", ['help', 'augment=', 'blend', 'flip', 'imagenet', 'jitter', 'quarter', 'scale'])
+        opts, args = getopt.getopt(sys.argv[1:], "ha:bfijnqs", ['help', 'augment=', 'blend', 'flip', 'imagenet', 'jitter', 'invalid', 'quarter', 'scale'])
     except getopt.GetoptError, msg:
         raise Usage(msg)
 
@@ -56,6 +57,8 @@ try:
             CROP_X, CROP_Y, CROP_W, CROP_H = (0, 0, 224, 112)
         elif opt in ('-j', '--jitter'):
             allow_jitter = True
+        elif opt in ('-n', '--invalid'):
+            do_invalid = True
         elif opt in ('-q', '--quarter'):
             do_quarter = True
         elif opt in ('-s', '--scale'):
@@ -71,7 +74,8 @@ except Usage, err:
     print('\t-f --flip\tenable filping image when doing dataset augment')
     print('\t-i --imagenet\tuse the same image size as imagenet (224x224x3)')
     print('\t-j --jitter\tenable random shift in a small range when doing dataset augment')
-    print('\t-q --quarter\tuser quarter size of the image (80*80*3)')
+    print('\t-n --invalid\tgenerate invlalid logo crop')
+    print('\t-q --quarter\tuse quarter size of the image (80*80*3)')
     print('\t-s --scale\tenable scaling image by a small factor when doing dataset augment')
     print('\t-h --help\tshow this message')
     sys.exit(2)
@@ -131,16 +135,20 @@ for f in allfiles:
     except OSError:
         pass
 
-    im = Image.open(f)
+    try:
+        im = Image.open(f)
 
-    if ch.isdigit():
-        invalid = (INV_REGION * im.size).astype('int')
-        im.crop(invalid.ravel()).resize(out_size, Image.BICUBIC).save(inv_file, quality=100)
+        if do_invalid and ch.isdigit():
+            invalid = (INV_REGION * im.size).astype('int')
+            im.crop(invalid.ravel()).resize(out_size, Image.BICUBIC).save(inv_file, quality=100)
 
-    # extent to a larger image with a margin of jitter pixel on each side
-    new_size = tuple((im.size * (1 + MAX_JITTER * 2)).astype('int'))
-    rect = tuple((np.array((-MAX_JITTER, 1+MAX_JITTER))*im.size).astype('int').ravel())
-    img = im.transform(new_size, Image.EXTENT, rect)
+        # extent to a larger image with a margin of jitter pixel on each side
+        new_size = tuple((im.size * (1 + MAX_JITTER * 2)).astype('int'))
+        rect = tuple((np.array((-MAX_JITTER, 1+MAX_JITTER))*im.size).astype('int').ravel())
+        img = im.transform(new_size, Image.EXTENT, rect)
+    except:
+        continue
+
 
     i = 1 if isfile(logo_file) else 0
     while True:
