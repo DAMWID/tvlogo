@@ -33,7 +33,7 @@ class tvlogo(object):
     tr_box = (460, 4, 620, 84)
 
     def __init__(self, confdir='.'):
-        self.label = Labels(join(confdir, 'channels.txt'), self.layout[-1])
+        self.label = Labels(join(confdir, 'channels.map'), self.layout[-1])
 
         attr_i = 'x'.join([ str(l) for l in self.layout[0] ])
         attr_c = '_'.join([ str(l[0]) for l in self.layout[1] ])

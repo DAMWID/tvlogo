@@ -26,7 +26,7 @@ try:
         raise Usage(None)
     basedir = args[0]
 
-    labelmap = join(basedir, 'channels.txt')
+    labelmap = join(basedir, 'channels.map')
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):

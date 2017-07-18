@@ -20,7 +20,7 @@ CUSTOM_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64), (128, 128)), (1024,), 0)
 SIMPLE_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64)), (1024,), 0)
 LINEAR_LAYOUT = ((224, 224, 3), (), (), 0)
 
-label_manifest = 'channels.txt'
+label_manifest = 'channels.map'
 
 basedir = '.'
 restart = False

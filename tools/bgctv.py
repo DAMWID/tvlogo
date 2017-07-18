@@ -346,7 +346,7 @@ class BGCTV(object):
 def main():
 
     basedir = '.'
-    channelmap = join(basedir, 'channels.txt')
+    channelmap = join(basedir, 'channels.map')
 
     network = ((160, 160, 3), ((32, 32), (64, 64), (128, 128)), (1024,), 1000)
     #imgconv = ((640, 360), (((20, 4, 180, 84),),((460, 4, 620, 84),)))

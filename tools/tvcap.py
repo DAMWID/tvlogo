@@ -47,7 +47,7 @@ if len(sys.argv) > 3:
 else:
     batch = SNAPSHOTS_BATCH
 
-channel_file = join(basedir, 'channels.txt')
+channel_file = join(basedir, 'channels.map')
 snapdir = join(basedir, 'snap')
 
 tv = bgctv.BGCTV(channel_file, imgconv)

@@ -55,7 +55,7 @@ basedir = sys.argv[1]
 epoch = int(sys.argv[2])
 batch = int(sys.argv[3])
 
-channel_file = join(basedir, 'channels.txt')
+channel_file = join(basedir, 'channels.map')
 
 crop = np.array(((0, 0), (LOGO_CROP_W, LOGO_CROP_H)))
 base0 = np.array((LOGO_CROP_X, LOGO_CROP_Y))
