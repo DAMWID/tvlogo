@@ -94,7 +94,7 @@ try:
 except OSError:
     pass
 
-channels = [ d for d in os.listdir(snapdir) if isdir(join(snapdir, d)) and (d.isdigit() or d == 'inv') ]
+channels = [ d for d in os.listdir(snapdir) if isdir(join(snapdir, d)) ]
 
 allfiles = glob.glob(join(snapdir, '*', '*.jpg'))
 
@@ -125,8 +125,6 @@ if do_blend:
 
     allfiles += glob.glob(join(tempdir, '*', '*.jpg'))
 
-average_count = len(allfiles) / len(channels)
-
 for f in allfiles:
     ch = basename(dirname(f))
     logo_file = join(logodir, ch, basename(f))
@@ -139,7 +137,7 @@ for f in allfiles:
     try:
         im = Image.open(f)
 
-        do_invalid = random.randint(0, average_count/augment) == 0
+        do_invalid = random.randint(0, len(channels)/augment/2) == 0
         if do_invalid and ch.isdigit():
             invalid = (INV_REGION * im.size).astype('int')
             im.crop(invalid.ravel()).resize(out_size, Image.BICUBIC).save(inv_file, quality=100)
@@ -160,17 +158,23 @@ for f in allfiles:
             do_flip = False
         else:
             do_jitter = allow_jitter
-            do_scale = random.choice((True, False, False, False)) if allow_scale else False
+            do_scale = random.choice((True, False, False)) if allow_scale else False
             do_flip = random.choice((True, False)) if allow_flip else False
 
         origin = ((CROP_ORIGIN + MAX_JITTER) * im.size).astype('int')
 
-        scale_x = random.uniform(1-SCALE_RATIO, 1+SCALE_RATIO) if do_scale else 1.0
+        scale_to_3_4 = random.choice((True, False, False)) if do_scale else False
+        if scale_to_3_4:
+            scale_x = random.uniform(0.75-SCALE_RATIO, 0.75+SCALE_RATIO)
+            jitter_ratio = (random.uniform(0, 1), random.uniform(0, 1)) if do_jitter else (0, 0)
+        else:
+            scale_x = random.uniform(1.0-SCALE_RATIO, 1.0+SCALE_RATIO) if do_scale else 1.0
+            jitter_ratio = (random.uniform(-1, 1), random.uniform(-1, 1)) if do_jitter else (0, 0)
+
         scale_y = random.uniform(1-SCALE_RATIO, 1+SCALE_RATIO) if do_scale else 1.0
 
         crop = (CROP_REGION * (scale_x, scale_y) * im.size).astype('int')
 
-        jitter_ratio = (random.uniform(-1, 1), random.uniform(-1, 1)) if do_jitter else (0, 0)
         jitter = (MAX_JITTER * jitter_ratio * im.size).astype('int')
 
         # +------------------------------------------------
