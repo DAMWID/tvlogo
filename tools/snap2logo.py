@@ -137,10 +137,11 @@ for f in allfiles:
     try:
         im = Image.open(f)
 
-        do_invalid = random.randint(0, len(channels)/augment/2) == 0
-        if do_invalid and ch.isdigit():
-            invalid = (INV_REGION * im.size).astype('int')
-            im.crop(invalid.ravel()).resize(out_size, Image.BICUBIC).save(inv_file, quality=100)
+        if allow_invalid:
+            do_invalid = random.randint(0, len(channels)/augment/2) == 0
+            if do_invalid and ch.isdigit():
+                invalid = (INV_REGION * im.size).astype('int')
+                im.crop(invalid.ravel()).resize(out_size, Image.BICUBIC).save(inv_file, quality=100)
 
         # extent to a larger image with a margin of jitter pixel on each side
         new_size = tuple((im.size * (1 + MAX_JITTER * 2)).astype('int'))
@@ -151,7 +152,7 @@ for f in allfiles:
 
 
     i = 1 if isfile(logo_file) else 0
-    while True:
+    while i < (augment + 1):
         if i == 0:
             do_jitter = False
             do_scale = False
@@ -222,8 +223,6 @@ for f in allfiles:
         logo.resize(out_size, Image.BICUBIC).save(filename, quality=100)
 
         i += 1
-        if i == augment + 1:
-            break
 
 if do_blend:
     shutil.rmtree(tempdir)
