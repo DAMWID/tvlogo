@@ -18,6 +18,7 @@ DEFAULT_EPOCH = 5
 VGG16_LAYOUT = ((224, 224, 3), ((64, 64), (128, 128), (256, 256, 256), (512, 512, 512), (512, 512, 512)), (4096, 4096), 0)
 CUSTOM_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64), (128, 128)), (1024,), 0)
 SIMPLE_LAYOUT = ((224, 224, 3), ((32, 32), (64, 64)), (1024,), 0)
+MINIMAL_LAYOUT = ((224, 224, 3), ((32, 32), (64,)), (1024,), 0)
 LINEAR_LAYOUT = ((224, 224, 3), (), (), 0)
 
 label_manifest = 'channels.map'
@@ -61,7 +62,7 @@ class Samples(object):
             bx[i, :] = np.asarray(Image.open(f), dtype=np.float32).reshape(1, -1)
             by[i][int(label)] = 1.0
             bf.append(f)
-        bx = bx / 255.0
+        bx = (bx - 128.0) / 128.0
         if remain == 0:
             self.index = 0
         else:
@@ -78,7 +79,7 @@ class Samples(object):
             bx[i, :] = np.ravel(np.asarray(Image.open(f), dtype=np.float32))
             by[i][int(label)] = 1.0
             bf.append(f)
-        bx = bx / 255.0
+        bx = (bx - 128.0) / 128.0
         return bx, by, bf
 
 class Labels(object):
@@ -126,6 +127,8 @@ try:
                 layout = list(CUSTOM_LAYOUT)
             elif arg == 'simple':
                 layout = list(SIMPLE_LAYOUT)
+            elif arg == 'minimal':
+                layout = list(MINIMAL_LAYOUT)
             elif arg == 'linear':
                 layout = list(LINEAR_LAYOUT)
         elif opt in ('-r', '--restart'):
@@ -148,7 +151,7 @@ layout[0] = (samples.height, samples.width, samples.channels)
 layout[-1] = labels.count
 
 attr_i = 'x'.join([ str(l) for l in layout[0] ])
-attr_c = '_'.join([ str(l[0]) for l in layout[1] ])
+attr_c = '_'.join([ 'x'.join([ str(c) for c in l ]) for l in layout[1] ])
 attr_f = '_'.join([ str(l) for l in layout[2] ])
 attr = '-'.join([ s for s in (attr_i, attr_c, attr_f, str(layout[-1])) if len(s) > 0 ])
 
